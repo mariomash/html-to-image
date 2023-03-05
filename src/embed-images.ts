@@ -19,6 +19,20 @@ async function embedBackground<T extends HTMLElement>(
   }
 }
 
+function convertImgToBase64URL(url: string): Promise<string> {
+  return new Promise((resolve) => {
+    fetch(url)
+      .then((response) => response.blob())
+      .then((blob) => {
+        const reader = new FileReader()
+        reader.onload = function () {
+          resolve((this.result ?? '').toString())
+        } // <--- `this.result` contains a base64 data URI
+        reader.readAsDataURL(blob)
+      })
+  })
+}
+
 async function embedImageNode<T extends HTMLElement | SVGImageElement>(
   clonedNode: T,
   options: Options,
@@ -38,7 +52,18 @@ async function embedImageNode<T extends HTMLElement | SVGImageElement>(
       ? clonedNode.src
       : clonedNode.href.baseVal
 
-  const dataURL = await resourceToDataURL(url, getMimeType(url), options)
+  let dataURL: string
+  if (clonedNode instanceof HTMLImageElement) {
+    // for the demonstration purposes I used proxy server to avoid cross origin error
+    // const proxyUrl = 'https://cors-anywhere.herokuapp.com/'
+    const proxyUrl = ''
+    dataURL = await convertImgToBase64URL(
+      proxyUrl + (clonedNode as HTMLImageElement).src,
+    )
+  } else {
+    dataURL = await resourceToDataURL(url, getMimeType(url), options)
+  }
+
   await new Promise((resolve, reject) => {
     clonedNode.onload = resolve
     clonedNode.onerror = reject

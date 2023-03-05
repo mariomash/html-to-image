@@ -12,11 +12,43 @@ import {
   checkCanvasDimensions,
 } from './util'
 
+const isVisible = (el: HTMLElement): boolean => {
+  const computedStyle = window.getComputedStyle(el)
+  return !(
+    computedStyle.display === 'none' || computedStyle.visibility === 'hidden'
+  )
+}
+
+const addIdToImages = (node: Node, currentId = 0): number => {
+  let id = currentId
+  if (node.nodeType !== Node.ELEMENT_NODE || !isVisible(node as HTMLElement)) {
+    return id
+  }
+  if (node instanceof HTMLImageElement) {
+    ;(node as HTMLImageElement).setAttribute(
+      '__html_to_image_node_id__',
+      id.toString(),
+    )
+    id += 1
+  }
+  node.childNodes.forEach((childNode) => {
+    try {
+      id = addIdToImages(childNode, id)
+    } catch (e) {
+      // Nothing to do here, just don't add ID to those nodes if something fails
+    }
+  })
+  return id
+}
+
 export async function toSvg<T extends HTMLElement>(
   node: T,
   options: Options = {},
 ): Promise<string> {
   const { width, height } = getImageSize(node, options)
+
+  addIdToImages(node)
+
   const clonedNode = (await cloneNode(node, options, true)) as HTMLElement
   await embedWebFonts(clonedNode, options)
   await embedImages(clonedNode, options)
